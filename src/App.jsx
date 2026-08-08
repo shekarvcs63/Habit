@@ -1,3 +1,4 @@
+import { supabase } from "./supabase";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Droplet, BookOpen, GraduationCap, Coffee, Footprints, Moon, Brain,
@@ -99,21 +100,26 @@ if (data) {
 useEffect(() => {
   console.log("Entries:", entries);
 }, [entries]);
-const toggleHabit = (date, habitId) => {
+const toggleHabit = async (date, habitId) => {
+  const value = !entries?.[date]?.[habitId];
+
   setEntries((prev) => {
-    const day = { ...(prev[date] || {}) };
-
-    // toggle value
-    day[habitId] = !day[habitId];
-
-    return {
-      ...prev,
-      [date]: day,
-    };
+    const updated = { ...prev };
+    if (!updated[date]) updated[date] = {};
+    updated[date][habitId] = value;
+    return updated;
   });
-};
 
-  const addHabit = () => {
+  // 🔥 THIS IS WHAT WAS MISSING
+  await supabase.from("entries").upsert([
+    {
+      date: date,
+      habit_id: habitId,
+      done: value,
+    },
+  ]);
+};
+const addHabit = () => {
     const name = newHabit.trim();
     if (!name) return;
     const id = "h" + Date.now();
