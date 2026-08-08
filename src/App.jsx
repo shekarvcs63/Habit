@@ -96,23 +96,21 @@ if (data) {
     if (!loaded) return;
     persist(habits, entries);
   }, [habits, entries, loaded, persist]);
-
-const toggleHabit = async (date, habitId) => {
-  // toggle locally (UI)
+useEffect(() => {
+  console.log("Entries:", entries);
+}, [entries]);
+const toggleHabit = (date, habitId) => {
   setEntries((prev) => {
     const day = { ...(prev[date] || {}) };
-    day[habitId] = !day[habitId];
-    return { ...prev, [date]: day };
-  });
 
-  // save to database
-  await supabase.from('entries').insert([
-    {
-      habit_id: habitId,
-      date: date,
-      completed: true
-    }
-  ]);
+    // toggle value
+    day[habitId] = !day[habitId];
+
+    return {
+      ...prev,
+      [date]: day,
+    };
+  });
 };
 
   const addHabit = () => {
@@ -132,7 +130,7 @@ const toggleHabit = async (date, habitId) => {
   const completionForDate = (date) => {
     if (!habits.length) return 0;
     const day = entries[date] || {};
-    const done = habits.filter((h) => day[h.id]).length;
+const done = habits.filter((h) => day[h.id] === true).length;
     return Math.round((done / habits.length) * 100);
   };
 
