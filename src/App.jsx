@@ -54,67 +54,58 @@ export default function HabitTracker() {
   const [newIcon, setNewIcon] = useState("droplet");
   const [saveState, setSaveState] = useState("idle");
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = localStorage.getItem(STORAGE_KEY);
-if (data) {
-  const parsed = JSON.parse(data);
-  setHabits(parsed.habits || []);
-  setEntries(parsed.entries || {});
-}
-      } catch (e) {
-        // no existing data yet, keep defaults
-      } finally {
-        if (!cancelled) setLoaded(true);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
- const persist = useCallback((nextHabits, nextEntries) => {
-  try {
-    setSaveState("saving");
-
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ habits: nextHabits, entries: nextEntries })
-    );
-
-    // 👇 Add delay so "Saving..." is visible
-    setTimeout(() => {
-      setSaveState("saved");
-    }, 500); // 0.5 second
-
-  } catch (e) {
-    console.error(e);
-    setSaveState("error");
-  }
-}, []);
-
-  useEffect(() => {
-  let cancelled = false;
-
-  (async () => {
+ useEffect(() => {
+  const loadData = async () => {
     try {
-      const data = localStorage.getItem(STORAGE_KEY);
+      // Load habits from localStorage
+      const localData = localStorage.getItem(STORAGE_KEY);
 
-      if (data) {
-        const parsed = JSON.parse(data);
-        setHabits(parsed.habits || []);
-        setEntries(parsed.entries || {});
+      if (localData) {
+        const parsed = JSON.parse(localData);
+
+        if (parsed.habits) {
+          setHabits(parsed.habits);
+        }
       }
-    } catch (e) {
-      // no existing data yet, keep defaults
-    } finally {
-      if (!cancelled) setLoaded(true);
-    }
-  })();
 
-  return () => {
-    cancelled = true;
+      // Load daily entries from Supabase
+      const { data, error } = await supabase
+        .from("entries")
+        .select("date, habit_id, done");
+
+      if (error) {
+        console.error("❌ Supabase load error:", error);
+        setSaveState("error");
+        return;
+      }
+
+      // Convert Supabase rows into the format
+      // your app already uses
+      const formattedEntries = {};
+
+      for (const row of data || []) {
+        if (!formattedEntries[row.date]) {
+          formattedEntries[row.date] = {};
+        }
+
+        formattedEntries[row.date][row.habit_id] = row.done;
+      }
+
+      setEntries(formattedEntries);
+
+      console.log(
+        "✅ Entries loaded from Supabase:",
+        formattedEntries
+      );
+    } catch (error) {
+      console.error("❌ Failed to load data:", error);
+      setSaveState("error");
+    } finally {
+      setLoaded(true);
+    }
   };
+
+  loadData();
 }, []);
 
   // Save to Supabase
