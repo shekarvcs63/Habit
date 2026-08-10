@@ -103,21 +103,51 @@ useEffect(() => {
 const toggleHabit = async (date, habitId) => {
   const value = !entries?.[date]?.[habitId];
 
-  setEntries((prev) => {
-    const updated = { ...prev };
-    if (!updated[date]) updated[date] = {};
-    updated[date][habitId] = value;
-    return updated;
-  });
-
-  // 🔥 THIS IS WHAT WAS MISSING
-  await supabase.from("entries").upsert([
-    {
-      date: date,
-      habit_id: habitId,
-      done: value,
+  // Update UI immediately
+  setEntries((prev) => ({
+    ...prev,
+    [date]: {
+      ...(prev[date] || {}),
+      [habitId]: value,
     },
-  ]);
+  }));
+
+  // Save to Supabase
+  const { data, error } = await supabase
+    .from("entries")
+    .upsert(
+      {
+        date,
+        habit_id: habitId,
+        done: value,
+      },
+      {
+        onConflict: "date,habit_id",
+      }
+    )
+    .select();
+
+  if (error) {
+    console.error("❌ Supabase save error:", error);
+    console.error("Error message:", error.message);
+    console.error("Error details:", error.details);
+    console.error("Error hint:", error.hint);
+
+    // Roll back UI if database save failed
+    setEntries((prev) => ({
+      ...prev,
+      [date]: {
+        ...(prev[date] || {}),
+        [habitId]: !value,
+      },
+    }));
+
+    setSaveState("error");
+    return;
+  }
+
+  console.log("✅ Saved to Supabase:", data);
+  setSaveState("saved");
 };
 const addHabit = () => {
     const name = newHabit.trim();
