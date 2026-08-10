@@ -94,23 +94,28 @@ if (data) {
 }, []);
 
   useEffect(() => {
-    if (!loaded) return;
-    persist(habits, entries);
-  }, [habits, entries, loaded, persist]);
-useEffect(() => {
-  console.log("Entries:", entries);
-}, [entries]);
-const toggleHabit = async (date, habitId) => {
-  const value = !entries?.[date]?.[habitId];
+  let cancelled = false;
 
-  // Update UI immediately
-  setEntries((prev) => ({
-    ...prev,
-    [date]: {
-      ...(prev[date] || {}),
-      [habitId]: value,
-    },
-  }));
+  (async () => {
+    try {
+      const data = localStorage.getItem(STORAGE_KEY);
+
+      if (data) {
+        const parsed = JSON.parse(data);
+        setHabits(parsed.habits || []);
+        setEntries(parsed.entries || {});
+      }
+    } catch (e) {
+      // no existing data yet, keep defaults
+    } finally {
+      if (!cancelled) setLoaded(true);
+    }
+  })();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
 
   // Save to Supabase
   const { data, error } = await supabase
